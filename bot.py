@@ -1,12 +1,14 @@
 import telebot
+from dotenv import load_dotenv
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from downloader import *
 
 song_name = ''
 songs_list = []
 
-bot = telebot.TeleBot(
-    "5450349606:AAHJ4VszZPLqZQHksgGX1iIXT3wzFQXFW1M", parse_mode=None)
+load_dotenv()
+token = os.getenv("TG_TOKEN")
+bot = telebot.TeleBot(token, parse_mode=None)
 
 
 def get_songs_list_markup(message, song_name, page_num):
@@ -23,12 +25,9 @@ def get_songs_list_markup(message, song_name, page_num):
     for song_id, song in enumerate(songs_list):
         markup.add(InlineKeyboardButton(
             song[0], callback_data="dwnldsong{}".format(song_id)))
-    if page_num > 1:
-        markup.add(InlineKeyboardButton("<", callback_data="page_prev{}".format(page_num)),
-                   InlineKeyboardButton(">", callback_data="page_next{}".format(page_num)))
-    else:
-        markup.add(InlineKeyboardButton(
-            ">", callback_data="page_next{}".format(page_num)))
+    markup.add(InlineKeyboardButton("<", callback_data="page_prev{}".format(page_num)),
+               InlineKeyboardButton("X", callback_data="delmsg"),
+               InlineKeyboardButton(">", callback_data="page_next{}".format(page_num)))
     return markup
 
 
@@ -50,20 +49,27 @@ def callback_query(call):
     message = call.message
     if "page_prev" in call.data:
         page_num = int(call.data[9:]) - 1
-        markup = get_songs_list_markup(message, song_name, page_num)
-        bot.edit_message_text(
-            "Choose one of 'em", message.chat.id, message.id, reply_markup=markup)
+        if page_num >= 1:
+            markup = get_songs_list_markup(message, song_name, page_num)
+            bot.edit_message_text(
+                "Choose one of 'em", message.chat.id, message.id, reply_markup=markup)
+        else:
+            bot.answer_callback_query(call.id, "it's already first page -_-")
     elif "page_next" in call.data:
         page_num = int(call.data[9:]) + 1
         markup = get_songs_list_markup(message, song_name, page_num)
         bot.edit_message_text(
             "Choose one of 'em", message.chat.id, message.id, reply_markup=markup)
+    elif "delmsg" in call.data:
+        bot.delete_message(message.chat.id, message.id)
     elif "dwnldsong" in call.data:
         bot.answer_callback_query(call.id, "downloading")
         song_id = int(call.data[9:])
         filename = download_song(songs_list[song_id][0], songs_list[song_id][1])
-        audio = open('songs/{}'.format(filename), 'rb')
+        audio = open('./songs/{}'.format(filename), 'rb')
         bot.send_audio(message.chat.id, audio)
+    else:
+        print("wrong callback data")
 
 
 if __name__ == '__main__':
