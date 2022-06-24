@@ -9,6 +9,7 @@ bot = telebot.TeleBot(token, parse_mode=None)
 
 
 def get_songs_list_markup(message, song_req, page_num):
+    songs_list = []
     try:
         songs_list = search_song(song_req, page_num)
     except Exception:
